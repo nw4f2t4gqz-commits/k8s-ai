@@ -1,7 +1,7 @@
 # AI Model Benchmark Results
 
 > **Date:** 2026-03-17
-> **Cluster:** `eudrpkbe0001` — Ollama pod `ai-local-ollama` (namespace `ai-local`)
+> **Cluster:** `<cluster>` — Ollama pod `ai-local-ollama` (namespace `ai-local`)
 > **Ollama URL:** `http://ai-local-ollama:11434`
 > **Method:** `kubectl port-forward svc/ai-local-ollama 11434:11434 -n ai-local`
 
@@ -117,8 +117,8 @@ Run benchmark again:
 ```bash
 # Start port-forward
 kubectl port-forward -n ai-local svc/ai-local-ollama 11434:11434 \
-  --kubeconfig /home/jartymyt/kubeconfig/eudrpkbe0001.kubeconfig &
+  --kubeconfig /path/to/kubeconfig &
 
 # Run
-/home/jartymyt/.venv/bin/python /home/jartymyt/k8s-ai/bench_models.py
+python scripts/bench_models.py
 ```

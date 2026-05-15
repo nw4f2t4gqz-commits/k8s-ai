@@ -4,7 +4,7 @@
 
 - Kubernetes 1.24+
 - Helm 3.10+
-- Docker with access to `central-system-repo.app.corp:10443`
+- Docker with access to your image registry
 - `kubectl` with cluster-admin access
 - Grafana running in `monitoring` namespace with a Service Account token
 
@@ -12,22 +12,20 @@
 
 ```bash
 # Build and push image
-cd /home/jartymyt/k8s-ai
-docker build -t central-system-repo.app.corp:10443/9tech/ai/webui:v2026-05-15-17 .
-docker push central-system-repo.app.corp:10443/9tech/ai/webui:v2026-05-15-17
+docker build -t <registry>/<image>:<tag> .
+docker push <registry>/<image>:<tag>
 
 # Deploy via Helm
-KUBECONFIG=/home/jartymyt/kubeconfig/eudrpkbe0001.kubeconfig \
-helm upgrade --install ai-local /home/jartymyt/k8s-ai/helm \
+helm upgrade --install ai-local ./helm \
   --namespace ai-local --create-namespace \
   -f helm/values.yaml \
-  --set webui.image.tag=v2026-05-15-17
+  -f helm/values-<cluster>.yaml
 ```
 
 Or use the helper script:
 
 ```bash
-./scripts/build-deploy.sh v2026-05-15-17
+./scripts/build-deploy.sh <tag>
 ```
 
 ## Helm Values Reference
@@ -39,17 +37,17 @@ webui:
   enabled: true
   replicaCount: 1
   image:
-    repository: central-system-repo.app.corp:10443/9tech/ai/webui
-    tag: v2026-03-17-17
+    repository: <registry>/<image>
+    tag: <tag>
     pullPolicy: Always
   ingress:
     enabled: true
     className: traefik
     hosts:
-      - host: ai.apps.eudrpkbe0001.k8s.corp
+      - host: ai.apps.<cluster>.example.com
   env:
     - name: RANCHER_GATEWAYS
-      value: "https://rancher.apps.eudrpkbe0001.k8s.corp"
+      value: "https://rancher.apps.<cluster>.example.com"
 ```
 
 ### skills — AI system prompts
@@ -93,10 +91,10 @@ ollama:
       cpu: "26"
       memory: "16Gi"
   nodeSelector:
-    kubernetes.io/hostname: eudrpkxs1101.eudrpkbe0001.k8s.corp
+    kubernetes.io/hostname: <node-hostname>
 ```
 
-> **Note:** Ollama runs CPU-only. It is pinned to `eudrpkxs1101` which has 24 cores available. Do not change `nodeSelector` without verifying the target node has sufficient CPU.
+> **Note:** Ollama runs CPU-only. Pin it to a node with sufficient CPU cores via `nodeSelector`. Do not change `nodeSelector` without verifying the target node has sufficient CPU.
 
 ## Grafana Service Account Setup
 
@@ -116,22 +114,15 @@ dashboards:read
 ## Upgrade Procedure
 
 ```bash
-# 1. Edit values.yaml (skills, config changes)
-vim /home/jartymyt/k8s-ai/values.yaml
+# 1. If code changed — build new image
+docker build -t <registry>/<image>:<new-tag> .
+docker push <registry>/<image>:<new-tag>
 
-# 2. If code changed — build new image
-docker build -t central-system-repo.app.corp:10443/9tech/ai/webui:<new-tag> .
-docker push central-system-repo.app.corp:10443/9tech/ai/webui:<new-tag>
-
-# 3. Deploy
-rsync -a --exclude='venv/' --exclude='__pycache__/' --exclude='.git/' --exclude='*.pyc' \
-  /home/jartymyt/k8s-ai/ /tmp/k8s-ai-helm/
-
-KUBECONFIG=/home/jartymyt/kubeconfig/eudrpkbe0001.kubeconfig \
-helm upgrade ai-local /tmp/k8s-ai-helm \
+# 2. Deploy
+helm upgrade ai-local ./helm \
   --namespace ai-local \
-  -f /home/jartymyt/k8s-ai/values.yaml \
-  --set webui.image.tag=<new-tag>
+  -f helm/values.yaml \
+  -f helm/values-<cluster>.yaml
 ```
 
 ## Verify Deployment

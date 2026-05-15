@@ -34,7 +34,7 @@
 └─────────────────────────────────────────────────────────────┘
          ▲
          │  HTTPS (Traefik ingress)
-         │  ai.apps.eudrpkbe0001.k8s.corp
+         │  ai.apps.<cluster>.example.com
          │
        Browser
 ```

@@ -35,11 +35,10 @@ After editing:
 ```bash
 ./scripts/build-deploy.sh --values-only
 # or manually:
-KUBECONFIG=/home/jartymyt/kubeconfig/eudrpkbe0001.kubeconfig \
-helm upgrade ai-local /tmp/k8s-ai-helm \
+helm upgrade ai-local ./helm \
   --namespace ai-local \
-  -f /home/jartymyt/k8s-ai/values.yaml \
-  --set webui.image.tag=<current-tag>
+  -f helm/values.yaml \
+  -f helm/values-<cluster>.yaml
 ```
 
 ## How Skills Are Injected

@@ -151,7 +151,7 @@ helm upgrade ai-local /tmp/k8s-ai-helm --namespace ai-local -f values.yaml ...
 kubectl describe pod -n ai-local <pod-name> | grep -A5 Events
 
 # Verify the image exists in registry
-docker manifest inspect central-system-repo.app.corp:10443/9tech/ai/webui:<tag>
+docker manifest inspect <registry>/<image>:<tag>
 ```
 
 ---
@@ -196,7 +196,7 @@ ollama:
       cpu: "26"
 ```
 
-> The `eudrpkxs1101` node has 24 physical cores. Setting limit above 24 may cause throttling.
+> Ollama runs CPU-only. Setting CPU limit above the node's physical core count may cause throttling.
 
 ---
 
@@ -209,30 +209,30 @@ ollama:
 **Ověření — zjisti gateway node:**
 ```bash
 kubectl get nodes -l cilium.io/egress-gateway-node=true \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig
+  --kubeconfig /path/to/kubeconfig
 ```
 
 **Ověření — přečti egress list přímo z gateway nodu:**
 ```bash
 GW_NODE=$(kubectl get nodes -l cilium.io/egress-gateway-node=true \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig \
+  --kubeconfig /path/to/kubeconfig \
   -o jsonpath='{.items[0].metadata.name}')
 
 GW_CILIUM=$(kubectl get pod -n kube-system \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig \
+  --kubeconfig /path/to/kubeconfig \
   -l k8s-app=cilium --field-selector spec.nodeName=$GW_NODE \
   -o jsonpath='{.items[0].metadata.name}')
 
 kubectl exec -n kube-system $GW_CILIUM \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig \
+  --kubeconfig /path/to/kubeconfig \
   -- cilium bpf egress list
 ```
 
 **Očekávaný výstup** (gateway node):
 ```
-Source IP     Destination CIDR   Egress IP     Gateway IP
-10.35.0.38    10.35.0.0/16       10.38.2.143   Excluded CIDR
-10.35.0.38    0.0.0.0/0          10.38.2.143   10.38.2.21
+Source IP     Destination CIDR   Egress IP       Gateway IP
+10.0.0.10     10.0.0.0/16        192.168.1.100   Excluded CIDR
+10.0.0.10     0.0.0.0/0          192.168.1.100   192.168.1.1
 ```
 
 ---
@@ -244,7 +244,7 @@ Source IP     Destination CIDR   Egress IP     Gateway IP
 **Ověření policy:**
 ```bash
 kubectl get ciliumegressgatewaypolicies \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig -o yaml | \
+  --kubeconfig /path/to/kubeconfig -o yaml | \
   grep -E "egressIP|namespaceSelector"
 ```
 
@@ -258,13 +258,14 @@ Ujisti se, že `spec.egressGateway.egressIP` odpovídá IP ve sloupci Egress IP 
 
 **Fix — nainstaluj CRDs ručně:**
 ```bash
-kubectl apply -f /home/jartymyt/k8s-ai/helm/crds/k8sgpt-crds.yaml \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig
+kubectl apply -f ./helm/crds/k8sgpt-crds.yaml \
+  --kubeconfig /path/to/kubeconfig
 
-helm upgrade ai-local /home/jartymyt/k8s-ai \
+helm upgrade ai-local ./helm \
   --namespace ai-local \
-  --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig \
-  --values /home/jartymyt/k8s-ai/values.yaml
+  --kubeconfig /path/to/kubeconfig \
+  -f helm/values.yaml \
+  -f helm/values-<cluster>.yaml
 ```
 
 ---
@@ -275,8 +276,8 @@ helm upgrade ai-local /home/jartymyt/k8s-ai \
 
 **Fix:**
 ```bash
-helm show crds /home/jartymyt/k8s-ai/charts/k8sgpt-operator-0.2.27.tgz | \
-  kubectl apply -f - --kubeconfig /home/jartymyt/kubeconfig/<cluster>.kubeconfig
+helm show crds ./helm/charts/k8sgpt-operator-*.tgz | \
+  kubectl apply -f - --kubeconfig /path/to/kubeconfig
 ```
 
 ---

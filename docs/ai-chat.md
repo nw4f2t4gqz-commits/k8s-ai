@@ -36,7 +36,7 @@ At the top of the chat tab:
 | Indicator | Meaning |
 |---|---|
 | `📊 Cluster data: HH:MM:SS` | Time of last context fetch |
-| `✅ +Prometheus (czplskbe1001)` | Grafana reachable, metrics filtered for the selected cluster |
+| `✅ +Prometheus (my-cluster)` | Grafana reachable, metrics filtered for the selected cluster |
 | `✅ +Prometheus` | Grafana reachable, no cluster filter (kubeconfig mode) |
 | `⚠️ Grafana offline` | Grafana unreachable — only K8s data available |
 | `🔄 Refresh cluster data` | Force re-fetch context from K8s API + Grafana |
@@ -68,7 +68,7 @@ Which namespace has the most pods?
 Are there any nodes with high memory usage?
 What are the top CPU-consuming pods right now?
 Are there any recent warning events?
-Is node eudrpkxs1101 overloaded?
+Is node <node-name> overloaded?
 How much pod capacity is left on each node?
 Are there any firing alerts in Grafana?
 ```

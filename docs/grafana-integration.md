@@ -105,7 +105,7 @@ if client and client.is_available():
     #            "top_pods_cpu": "...", "top_pods_memory": "..."}
 
     alerts = client.get_firing_alerts()
-    # alerts = "ALERT: HighCPU on node eudrpkxs1101 ..."
+    # alerts = "ALERT: HighCPU on node <node-name> ..."
 ```
 
 ### Methods
