@@ -1,0 +1,8 @@
+{{- if .Values.k8sgpt.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8sgpt-operator-system
+  labels:
+    {{- include "k8sgpt-ai-analyzer.labels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.k8sgpt.enabled }}
+apiVersion: core.k8sgpt.ai/v1alpha1
+kind: K8sGPT
+metadata:
+  name: {{ include "k8sgpt-ai-analyzer.fullname" . }}-k8sgpt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8sgpt-ai-analyzer.labels" . | nindent 4 }}
+spec:
+  ai:
+    enabled: {{ .Values.k8sgpt.aiEnabled | default false }}
+    backend: {{ .Values.k8sgpt.backend }}
+    model: {{ .Values.k8sgpt.model | quote }}
+    {{- if eq .Values.k8sgpt.backend "localai" }}
+    baseUrl: "http://{{ .Release.Name }}-ollama.{{ .Release.Namespace }}.svc.cluster.local:11434/v1"
+    {{- else if eq .Values.k8sgpt.backend "openai" }}
+    secret:
+      name: {{ include "k8sgpt-ai-analyzer.fullname" . }}-secret
+      key: openai-api-key
+    {{- end }}
+  repository: ghcr.io/k8sgpt-ai/k8sgpt
+  version: "202602281832"
+  noCache: false
+{{- end }}

@@ -1,0 +1,43 @@
+apiVersion: v2
+name: k8sgpt-ai-analyzer
+description: Complete AI-powered Kubernetes analysis platform with K8sGPT operator and MCP server
+home: https://github.com/k8sgpt-ai/k8sgpt
+sources:
+  - https://github.com/k8sgpt-ai/k8sgpt
+  - https://github.com/k8sgpt-ai/k8sgpt-operator
+
+# A chart can be either an 'application' or a 'library' chart.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+version: 0.1.0
+
+# This is the version number of the application being deployed.
+appVersion: "0.4.30"
+
+# Chart dependencies
+dependencies:
+  - name: k8sgpt-operator
+    version: "0.2.27"
+    repository: "https://charts.k8sgpt.ai/"
+    condition: k8sgpt.enabled
+  - name: ollama
+    version: "1.55.0"
+    repository: "https://otwld.github.io/ollama-helm/"
+    condition: ollama.enabled
+
+maintainers:
+  - name: K8sGPT AI Team
+    email: noreply@k8sgpt.ai
+  - name: DevOps AI Analyzer
+    email: devops@example.com
+
+keywords:
+  - kubernetes
+  - ai
+  - sre
+  - monitoring
+  - troubleshooting
+  - analysis
+  - mcp
+  - operator

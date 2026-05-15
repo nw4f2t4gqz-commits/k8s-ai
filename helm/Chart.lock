@@ -1,0 +1,9 @@
+dependencies:
+- name: k8sgpt-operator
+  repository: https://charts.k8sgpt.ai/
+  version: 0.2.27
+- name: ollama
+  repository: https://otwld.github.io/ollama-helm/
+  version: 1.55.0
+digest: sha256:ff4068d92c26fda25e63353965c64c7a77e8cfb50d49c991fa85b79368e8e8fc
+generated: "2026-05-15T14:49:08.132658192+02:00"

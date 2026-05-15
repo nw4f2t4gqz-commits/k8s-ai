@@ -1,0 +1,232 @@
+# Default values for k8sgpt-ai-analyzer
+# Complete AI-powered Kubernetes analysis platform
+#
+# Environment-specific overrides → helm/values-<cluster>.yaml (not committed to git)
+# Deploy:  helm upgrade ai-local ./helm -f helm/values-eudrpkbe0001.yaml ...
+
+# K8sGPT Operator Configuration
+k8sgpt:
+  enabled: true
+  backend: localai
+  model: "phi3.5"
+  aiEnabled: false
+  enableResultLogging: true
+  sinkWebhookTimeout: "30s"
+
+# Ollama Configuration (for local AI models)
+ollama:
+  enabled: true
+  model: "phi3.5"
+  replicaCount: 1
+  image:
+    repository: ollama/ollama
+    tag: "0.24.0"
+    pullPolicy: IfNotPresent
+  persistentVolume:
+    enabled: true
+    size: 30Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+    limits:
+      cpu: "16"
+      memory: "16Gi"
+  nodeSelector: {}
+  service:
+    type: ClusterIP
+    port: 11434
+  ingress:
+    enabled: false
+    className: "traefik"
+    hosts: []
+    tls: []
+  extraEnv:
+    - name: OLLAMA_FLASH_ATTENTION
+      value: "true"
+    - name: OLLAMA_KV_CACHE_TYPE
+      value: "q8_0"
+    - name: OLLAMA_NUM_CTX
+      value: "4096"
+    - name: OLLAMA_NUM_PARALLEL
+      value: "1"
+    - name: OLLAMA_NUM_THREAD
+      value: "8"
+    - name: OLLAMA_KEEP_ALIVE
+      value: "30m"
+  volumes: []
+  volumeMounts: []
+  initContainers: []
+  tolerations: []
+  affinity: {}
+
+# Streamlit Web UI Configuration
+webui:
+  enabled: true
+  image:
+    repository: ""   # override in values-<cluster>.yaml
+    tag: "latest"
+    pullPolicy: Always
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8501
+  ingress:
+    enabled: false
+    className: "traefik"
+    annotations: {}
+    hosts: []
+    tls: []
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "50m"
+    limits:
+      memory: "1Gi"
+      cpu: "100m"
+  env:
+    - name: K8SGPT_BACKEND
+      value: "localai"
+  configMap:
+    enabled: true
+    name: ""
+
+# AI Skills — system prompts, configurable without rebuilding the image
+skills:
+  insights: |
+    You are an expert Kubernetes L2/L3 support engineer at a manufacturing company.
+    You have deep knowledge of Kubernetes, Helm, Rancher, ArgoCD, Longhorn, Cilium, Prometheus, Loki and Grafana.
+    You are analyzing a LIVE Kubernetes cluster.
+    Rules:
+    - Answer ONLY in English.
+    - Respond ONLY to the Kubernetes topic asked. Never produce translations, essays or unrelated content.
+    - Use exact numbers from the provided cluster data. Do NOT say "use kubectl" for facts already in the data.
+    - Format your response with numbered sections: 1) Assessment 2) Issues 3) Recommendations.
+    - Include specific kubectl commands where useful.
+    - Be concise — max 300 words.
+
+  chat: |
+    You are an expert Kubernetes L2/L3 support engineer assistant at a manufacturing company.
+    You have deep knowledge of Kubernetes, Helm, Rancher, ArgoCD, Longhorn, Cilium, Prometheus, Loki and Grafana.
+    You are connected to a LIVE Kubernetes cluster and have access to real-time data.
+    Rules:
+    - Answer ONLY in English.
+    - When the user asks about cluster state (pods, nodes, CPU, memory, alerts), answer using the EXACT numbers
+      from the LIVE CLUSTER DATA section in the prompt. Do NOT say "use kubectl to find out" if the answer is there.
+    - For operational questions (restart a pod, scale a deployment, etc.) provide kubectl commands.
+    - Do NOT translate, do NOT produce unrelated content.
+    - Be concise and technical. Use bullet points for multi-step answers.
+
+# Grafana MCP sidecar
+grafanaMCP:
+  enabled: false
+  image: grafana/mcp-grafana:latest
+  grafanaUrl: ""
+  serviceAccountToken: ""
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "64Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+
+# Monitoring Configuration
+monitoring:
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
+    additionalLabels:
+      release: prometheus
+  grafanaDashboard:
+    enabled: false
+    namespace: monitoring
+    folder: "AI & SRE"
+    label:
+      key: grafana_dashboard
+      value: "1"
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Node selector, tolerations, and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
