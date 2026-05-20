@@ -31,7 +31,7 @@ WORKDIR /app
 COPY --from=builder /root/.local /home/app/.local
 
 # Copy application code
-COPY app.py k8s_analyzer.py rancher_client.py FaureciaRootCA.cer ./
+COPY app/app.py app/k8s_analyzer.py app/rancher_client.py app/translations.py app/FaureciaRootCA.cer ./
 
 # Change ownership to app user
 RUN chown -R app:app /app

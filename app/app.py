@@ -1693,23 +1693,33 @@ def render_egress_tab():
                     continue
                 if _src_vlan not in (54, 59):
                     continue
+                _desc      = str(_row[2] or "").strip()
                 _dest_ip   = str(_row[6] or "").strip()
                 _dest_host = str(_row[5] or "").strip()
                 _service   = str(_row[9] or "").strip()
-                try:
-                    _port = int(_row[8])
-                except (TypeError, ValueError):
+                # Port cell may contain a single int or comma-separated list (e.g. "2400,2401,2404")
+                _port_raw = str(_row[8] or "").strip()
+                _ports = []
+                for _p in _port_raw.split(","):
+                    _p = _p.strip()
+                    try:
+                        _ports.append(int(_p))
+                    except (TypeError, ValueError):
+                        pass
+                if not _ports:
                     continue
                 if not _dest_ip or _dest_ip in ("None", ""):
                     continue
-                _egress_rows.append({
-                    "type":      "OT" if _src_vlan == 54 else "IT",
-                    "src_vlan":  _src_vlan,
-                    "dest_ip":   _dest_ip,
-                    "port":      _port,
-                    "dest_host": _dest_host,
-                    "service":   _service,
-                })
+                for _port in _ports:
+                    _egress_rows.append({
+                        "type":      "OT" if _src_vlan == 54 else "IT",
+                        "src_vlan":  _src_vlan,
+                        "desc":      _desc,
+                        "dest_ip":   _dest_ip,
+                        "port":      _port,
+                        "dest_host": _dest_host,
+                        "service":   _service,
+                    })
 
             if not _egress_rows:
                 st.warning(t('egress_xls_no_rows'))
@@ -1731,6 +1741,7 @@ def render_egress_tab():
                     st.table([
                         {
                             "Typ": _r["type"],
+                            "Popis": _r["desc"],
                             "Dest IP": _r["dest_ip"],
                             "Port": _r["port"],
                             "Hostname": _r["dest_host"],
@@ -1806,6 +1817,7 @@ def render_egress_tab():
                         st.table([
                             {
                                 "Typ": _r["type"],
+                                "Popis": _r["desc"],
                                 "Dest IP": _r["dest_ip"],
                                 "Port": _r["port"],
                                 "Hostname": _r["dest_host"],
@@ -1819,6 +1831,7 @@ def render_egress_tab():
                         st.table([
                             {
                                 "Typ": _r["type"],
+                                "Popis": _r["desc"],
                                 "Dest IP": _r["dest_ip"],
                                 "Port": _r["port"],
                                 "Hostname": _r["dest_host"],
@@ -1832,6 +1845,7 @@ def render_egress_tab():
                         st.table([
                             {
                                 "Typ": _r["type"],
+                                "Popis": _r["desc"],
                                 "Dest IP": _r["dest_ip"],
                                 "Port": _r["port"],
                                 "Hostname": _r["dest_host"],
