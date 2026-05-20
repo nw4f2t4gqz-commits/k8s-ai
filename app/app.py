@@ -1697,10 +1697,12 @@ def render_egress_tab():
                 _dest_ip   = str(_row[6] or "").strip()
                 _dest_host = str(_row[5] or "").strip()
                 _service   = str(_row[9] or "").strip()
-                # Port cell may contain a single int or comma-separated list (e.g. "2400,2401,2404")
+                # Port cell may contain a single int, comma-separated or newline-separated list
+                # e.g. "2400,2401,2404" or "443\n80" (merged cells with wrap text)
                 _port_raw = str(_row[8] or "").strip()
+                import re as _re
                 _ports = []
-                for _p in _port_raw.split(","):
+                for _p in _re.split(r"[,\n]+", _port_raw):
                     _p = _p.strip()
                     try:
                         _ports.append(int(_p))
