@@ -5,7 +5,7 @@ FROM python:3.11-slim as builder
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY app/requirements.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --trusted-host pypi.org \
@@ -31,7 +31,7 @@ WORKDIR /app
 COPY --from=builder /root/.local /home/app/.local
 
 # Copy application code
-COPY app/app.py app/k8s_analyzer.py app/rancher_client.py app/translations.py app/ca-bundle.pem ./
+COPY app.py k8s_analyzer.py rancher_client.py FaureciaRootCA.cer ./
 
 # Change ownership to app user
 RUN chown -R app:app /app

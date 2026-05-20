@@ -1664,6 +1664,185 @@ def render_egress_tab():
             else:
                 st.warning(t('egress_fw_warn_justification'))
 
+    # ── Bulk egress test from FW template XLS ─────────────────────────────────
+    st.divider()
+    st.subheader(t('egress_xls_title'))
+
+    xls_file = st.file_uploader(
+        t('egress_xls_upload_label'),
+        type=["xlsx"],
+        key="egress_xls_upload",
+        help=t('egress_xls_upload_help'),
+    )
+
+    if xls_file is not None:
+        try:
+            from openpyxl import load_workbook as _load_wb
+            _wb = _load_wb(io.BytesIO(xls_file.getvalue()), data_only=True)
+            _ws = _wb.active
+        except Exception as _parse_err:
+            st.error(t('egress_xls_parse_err', e=str(_parse_err)))
+        else:
+            # Row 1: empty, Row 2: headers, data starts Row 3
+            # Columns (0-indexed): B=src_vlan, F=dest_host, G=dest_ip, I=port, J=service
+            _egress_rows = []
+            for _row in _ws.iter_rows(min_row=3, values_only=True):
+                try:
+                    _src_vlan = int(_row[1])
+                except (TypeError, ValueError):
+                    continue
+                if _src_vlan not in (54, 59):
+                    continue
+                _dest_ip   = str(_row[6] or "").strip()
+                _dest_host = str(_row[5] or "").strip()
+                _service   = str(_row[9] or "").strip()
+                try:
+                    _port = int(_row[8])
+                except (TypeError, ValueError):
+                    continue
+                if not _dest_ip or _dest_ip in ("None", ""):
+                    continue
+                _egress_rows.append({
+                    "type":      "OT" if _src_vlan == 54 else "IT",
+                    "src_vlan":  _src_vlan,
+                    "dest_ip":   _dest_ip,
+                    "port":      _port,
+                    "dest_host": _dest_host,
+                    "service":   _service,
+                })
+
+            if not _egress_rows:
+                st.warning(t('egress_xls_no_rows'))
+            else:
+                # Deduplicate by (dest_ip, port)
+                _seen = set()
+                _unique = []
+                for _r in _egress_rows:
+                    _k = (_r["dest_ip"], _r["port"])
+                    if _k not in _seen:
+                        _seen.add(_k)
+                        _unique.append(_r)
+
+                _ot_cnt = sum(1 for _r in _unique if _r["type"] == "OT")
+                _it_cnt = sum(1 for _r in _unique if _r["type"] == "IT")
+                st.info(t('egress_xls_parsed', total=len(_egress_rows), unique=len(_unique), ot=_ot_cnt, it=_it_cnt))
+
+                with st.expander(t('egress_xls_targets_expander', n=len(_unique)), expanded=True):
+                    st.table([
+                        {
+                            "Typ": _r["type"],
+                            "Dest IP": _r["dest_ip"],
+                            "Port": _r["port"],
+                            "Hostname": _r["dest_host"],
+                            "Service": _r["service"],
+                        }
+                        for _r in _unique
+                    ])
+
+                _col_run, _col_clear = st.columns([3, 1])
+                with _col_run:
+                    _run_xls = st.button(t('egress_xls_run_btn'), type="primary", key="egress_xls_run")
+                with _col_clear:
+                    if st.button(t('egress_xls_clear_btn'), key="egress_xls_clear"):
+                        st.session_state.pop("egress_xls_results", None)
+                        st.session_state.pop("egress_xls_raw", None)
+                        st.rerun(scope="fragment")
+
+                if _run_xls:
+                    # Build one batch shell script: nc -zw 2 per unique target
+                    _cmd_lines = []
+                    for _r in _unique:
+                        _ip = _r["dest_ip"]
+                        _p  = _r["port"]
+                        _cmd_lines.append(
+                            f"nc -zw 2 {_ip} {_p} 2>/dev/null "
+                            f"&& echo 'RESULT:OPEN:{_ip}:{_p}' "
+                            f"|| echo 'RESULT:CLOSED:{_ip}:{_p}'"
+                        )
+                    _batch_cmd = "\n".join(_cmd_lines)
+                    # Allow 2 s per target + 20 s pod startup, min 60 s
+                    _test_timeout = max(60, len(_unique) * 3 + 20)
+
+                    with st.spinner(t('egress_xls_spinner', n=len(_unique), ns=selected_ns)):
+                        _raw_out, _, _ = analyzer.run_pod_command(
+                            selected_ns, _batch_cmd, timeout=_test_timeout
+                        )
+
+                    # Parse output: "RESULT:OPEN|CLOSED:ip:port"
+                    _result_map = {}
+                    for _line in _raw_out.splitlines():
+                        _line = _line.strip()
+                        if _line.startswith("RESULT:"):
+                            _parts = _line.split(":")
+                            if len(_parts) == 4:
+                                _, _status, _r_ip, _r_port = _parts
+                                _result_map[(_r_ip, _r_port)] = _status
+
+                    _final = []
+                    for _r in _unique:
+                        _status = _result_map.get(
+                            (_r["dest_ip"], str(_r["port"])), "UNKNOWN"
+                        )
+                        _final.append({**_r, "status": _status})
+
+                    st.session_state["egress_xls_results"] = _final
+                    st.session_state["egress_xls_raw"] = _raw_out
+
+                # ── Display results ────────────────────────────────────────────
+                if "egress_xls_results" in st.session_state:
+                    _results = st.session_state["egress_xls_results"]
+                    _open_r   = [_r for _r in _results if _r["status"] == "OPEN"]
+                    _closed_r = [_r for _r in _results if _r["status"] == "CLOSED"]
+                    _unknown_r = [_r for _r in _results if _r["status"] == "UNKNOWN"]
+
+                    _mc1, _mc2, _mc3 = st.columns(3)
+                    _mc1.metric(t('egress_xls_open_count'),    len(_open_r))
+                    _mc2.metric(t('egress_xls_closed_count'),  len(_closed_r))
+                    if _unknown_r:
+                        _mc3.metric(t('egress_xls_unknown_count'), len(_unknown_r))
+
+                    if _open_r:
+                        st.success(t('egress_xls_open_table'))
+                        st.table([
+                            {
+                                "Typ": _r["type"],
+                                "Dest IP": _r["dest_ip"],
+                                "Port": _r["port"],
+                                "Hostname": _r["dest_host"],
+                                "Service": _r["service"],
+                            }
+                            for _r in _open_r
+                        ])
+
+                    if _closed_r:
+                        st.error(t('egress_xls_closed_table'))
+                        st.table([
+                            {
+                                "Typ": _r["type"],
+                                "Dest IP": _r["dest_ip"],
+                                "Port": _r["port"],
+                                "Hostname": _r["dest_host"],
+                                "Service": _r["service"],
+                            }
+                            for _r in _closed_r
+                        ])
+
+                    if _unknown_r:
+                        st.warning("⚠️ Cíle s neznámým výsledkem (timeout / chyba parsování):")
+                        st.table([
+                            {
+                                "Typ": _r["type"],
+                                "Dest IP": _r["dest_ip"],
+                                "Port": _r["port"],
+                                "Hostname": _r["dest_host"],
+                                "Service": _r["service"],
+                            }
+                            for _r in _unknown_r
+                        ])
+
+                    with st.expander(t('egress_xls_raw_output')):
+                        st.code(st.session_state.get("egress_xls_raw", "(no output)"), language="")
+
 
 with tab8:
     render_egress_tab()
