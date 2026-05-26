@@ -182,6 +182,35 @@ class GrafanaMCPClient:
 
         return metrics
 
+    def get_loki_datasource_uid(self) -> str | None:
+        """Vrátí UID Loki datasource z Grafany."""
+        if _requests is None:
+            return None
+        try:
+            r = _requests.get(
+                f"{self.url}/api/datasources",
+                headers=self.headers, timeout=5, verify=False
+            )
+            r.raise_for_status()
+            for ds in r.json():
+                if ds.get("type") == "loki":
+                    return ds.get("uid")
+        except Exception as e:
+            print(f"GrafanaAPI get_loki_datasource_uid failed: {e}")
+        return None
+
+    def create_loki_client(self) -> 'LokiClient | None':
+        """Vrátí LokiClient napojený přes Grafana datasource proxy."""
+        uid = self.get_loki_datasource_uid()
+        if not uid:
+            return None
+        proxy_url = f"{self.url}/api/datasources/proxy/uid/{uid}"
+        client = LokiClient(proxy_url, verify_ssl=False, headers=self.headers)
+        # Zjisti jestli Loki obsahuje cluster label
+        labels = client.get_labels()
+        client.has_cluster_label = 'cluster' in labels
+        return client
+
     def get_firing_alerts(self) -> str | None:
         """Vrátí firing alerty z Grafana Alerting API."""
         if _requests is None:
@@ -217,9 +246,10 @@ class GrafanaMCPClient:
 class LokiClient:
     """Jednoduchý klient pro Loki Log Query API."""
 
-    def __init__(self, loki_url: str, verify_ssl=True):
+    def __init__(self, loki_url: str, verify_ssl=True, headers=None):
         self.url = loki_url.rstrip('/')
         self.verify = verify_ssl
+        self.headers = headers or {}
 
     @classmethod
     def detect(cls, verify_ssl=True):
@@ -265,7 +295,7 @@ class LokiClient:
         }
         try:
             r = _requests.get(f'{self.url}/loki/api/v1/query_range',
-                              params=params, timeout=15, verify=self.verify)
+                              params=params, headers=self.headers, timeout=15, verify=self.verify)
             r.raise_for_status()
             results = r.json().get('data', {}).get('result', [])
             lines = []
@@ -296,7 +326,7 @@ class LokiClient:
         if _requests is None:
             return []
         try:
-            r = _requests.get(f'{self.url}/loki/api/v1/labels', timeout=5, verify=self.verify)
+            r = _requests.get(f'{self.url}/loki/api/v1/labels', headers=self.headers, timeout=5, verify=self.verify)
             r.raise_for_status()
             return r.json().get('data', [])
         except Exception as e:
@@ -313,7 +343,7 @@ class LokiClient:
             elif cluster and getattr(self, 'has_cluster_label', False):
                 params['match[]'] = f'{{cluster=~"{cluster}"}}'
             r = _requests.get(f'{self.url}/loki/api/v1/label/{label}/values',
-                              params=params, timeout=5, verify=self.verify)
+                              params=params, headers=self.headers, timeout=5, verify=self.verify)
             r.raise_for_status()
             return r.json().get('data', [])
         except Exception as e:
@@ -323,7 +353,7 @@ class LokiClient:
         if _requests is None:
             return False
         try:
-            r = _requests.get(f'{self.url}/loki/api/v1/labels', timeout=3, verify=self.verify)
+            r = _requests.get(f'{self.url}/loki/api/v1/labels', headers=self.headers, timeout=3, verify=self.verify)
             return r.status_code == 200
         except Exception:
             return False
@@ -457,8 +487,8 @@ class K8sAnalyzer:
         try:
             if not self.v1:
                 return False, "Kubernetes client not initialized"
-            # Try to get cluster version as a simple connectivity test
-            self.v1.api_client.call_api('/version', 'GET')
+            # Use list_namespace as a reliable connectivity test
+            self.v1.list_namespace(limit=1)
             return True, "Connection successful"
         except Exception as e:
             return False, f"Connection failed: {str(e)}"
@@ -515,7 +545,14 @@ class K8sAnalyzer:
             return []
 
     def get_loki_client(self, verify_ssl=True):
-        """Vrátí LokiClient pokud je Loki dostupný, jinak None."""
+        """Vrátí LokiClient — preferuje Grafana datasource proxy, jinak přímý Loki."""
+        # Zkus nejdříve Grafana MCP (datasource proxy — nevyžaduje přímý přístup na Loki)
+        grafana = GrafanaMCPClient.detect()
+        if grafana:
+            loki = grafana.create_loki_client()
+            if loki:
+                return loki
+        # Fallback: přímé připojení na Loki
         return LokiClient.detect(verify_ssl=verify_ssl)
 
     def get_pod_logs(self, pod_name, namespace, container=None, tail_lines=100):

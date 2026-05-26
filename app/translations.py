@@ -41,8 +41,6 @@ TEXTS = {
     'available_clusters':   {'CZ': "📋 Dostupné clustery",      'EN': "📋 Available clusters"},
     'select_cluster':       {'CZ': "Vyberte cluster",           'EN': "Select cluster"},
     'select_cluster_help':  {'CZ': "Vyberte cluster pro analýzu", 'EN': "Select cluster for analysis"},
-    'metric_state':         {'CZ': "Stav",                      'EN': "State"},
-    'metric_version':       {'CZ': "Verze",                     'EN': "Version"},
     'btn_load_kubeconfig':  {'CZ': "🔄 Načíst kubeconfig",      'EN': "🔄 Load kubeconfig"},
     'spinner_kubeconfig':   {'CZ': "Načítám kubeconfig...",     'EN': "Loading kubeconfig..."},
     'kubeconfig_ok':        {'CZ': "✅ Kubeconfig načten úspěšně ({m})",
@@ -300,11 +298,11 @@ TEXTS = {
     # ── PingID Browser Login tab ───────────────────────────────────────────────
     'pingid_tab_info':      {'CZ': "**PingID Browser Login** — použijte pokud máte zapnuté MFA (push notifikace).\n\n"
                                    "1. Klikněte **Otevřít Rancher login** → přihlaste se normálně (username/password + PingID push na mobilu)\n"
-                                   "2. Po přihlášení do Rancher UI: **☰ → Account & API Keys → API Keys → Add Key**\n"
+                                   "2. Po přihlášení do Rancher UI: **☰ → Account & API Keys → API Keys → Create Key**\n"
                                    "3. Zkopírujte vygenerovaný Bearer token a vložte níže",
                              'EN': "**PingID Browser Login** — use this if MFA (push notification) is enabled.\n\n"
                                    "1. Click **Open Rancher Login** → sign in normally (username/password + PingID push on mobile)\n"
-                                   "2. After logging in to Rancher UI: **☰ → Account & API Keys → API Keys → Add Key**\n"
+                                   "2. After logging in to Rancher UI: **☰ → Account & API Keys → API Keys → Create Key**\n"
                                    "3. Copy the generated Bearer token and paste it below"},
     'btn_open_rancher':     {'CZ': "🌐 Otevřít Rancher login (PingID)",
                              'EN': "🌐 Open Rancher Login (PingID)"},

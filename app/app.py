@@ -495,13 +495,6 @@ with st.sidebar:
                     if cluster['name'] == cluster_name:
                         st.session_state.selected_cluster_id = cluster['id']
 
-                        # Zobrazit info o clusteru
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.metric(t('metric_state'), cluster['state'])
-                        with col2:
-                            st.metric(t('metric_version'), cluster['version'])
-
                         # Načíst kubeconfig pro vybraný cluster
                         if st.button(t('btn_load_kubeconfig')):
                             # Vždy vymazat staré kubeconfig data před novým načtením
@@ -623,11 +616,18 @@ with tab1:
         st.subheader(t('h_node_status'))
         node_data = []
         for node in nodes:
+            memory = node.status.capacity.get('memory', 'N/A')
+            if memory != 'N/A' and isinstance(memory, str) and memory.endswith('Ki'):
+                memory_ki = int(memory.rstrip('Ki'))
+                memory = f"{memory_ki / (1024 ** 2):.2f} Gi"
+            labels = node.metadata.labels or {}
+            is_egress_gw = labels.get('cilium.io/egress-gateway-node', '').lower() == 'true'
             node_data.append({
                 'Name': node.metadata.name,
                 'Status': node.status.conditions[-1].type if node.status.conditions else 'Unknown',
+                'Egress Gateway': is_egress_gw,
                 'CPU': node.status.capacity.get('cpu', 'N/A'),
-                'Memory': node.status.capacity.get('memory', 'N/A')
+                'Memory': memory,
             })
         st.table(node_data)
 
