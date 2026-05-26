@@ -75,6 +75,66 @@ Vytvoří dočasný pod `nettest-<uuid>` (busybox:1.36) v cílovém namespace, s
 - `ciliumegressgatewaypolicies` — get, list, watch
 - `nodes` — get, list (lookup gateway node)
 
+#### Testování egress vůči Windows jumphostu (euedcapp0299.dc.ege.ds:443)
+
+Pro ověření, že egress provoz opravdu odchází z clusteru přes správnou SNAT IP, se používá reálný Windows jumphost `euedcapp0299.dc.ege.ds` na portu `443`.
+
+**Krok 1 — Spustit TCP listener na Windows jumphostu**
+
+Na stroji `euedcapp0299.dc.ege.ds` otevři PowerShell a spusť následující skript. Ten začne naslouchat na portu 443 a vypisuje IP adresu každého příchozího spojení:
+
+```powershell
+$port = 443
+$endpoint = [System.Net.IPAddress]::Any
+$listener = New-Object System.Net.Sockets.TcpListener($endpoint, $port)
+
+Write-Host "Spouštím naslouchání na portu $port... (Ukončíš pomocí Ctrl+C)" -ForegroundColor Cyan
+
+try {
+    $listener.Start()
+    while($true) {
+        if ($listener.Pending()) {
+            $client = $listener.AcceptTcpClient()
+            $remoteIp = $client.Client.RemoteEndPoint.ToString()
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Připojení z IP: $remoteIp" -ForegroundColor Yellow
+
+            # Zavřeme spojení, aby se uvolnil slot pro další pokus
+            $client.Close()
+        }
+        Start-Sleep -Milliseconds 100
+    }
+}
+catch {
+    Write-Error "Chyba: $_"
+}
+finally {
+    $listener.Stop()
+    Write-Host "Naslouchání zastaveno." -ForegroundColor Red
+}
+```
+
+> Listener vyžaduje oprávnění pro otevření portu 443. Pokud port blokuje Windows Firewall nebo jiný proces, spusť PowerShell jako administrátor.
+
+**Krok 2 — Spustit test v k8s-ai (Egress / Network Test tab)**
+
+1. Otevři k8s-ai UI a přejdi na záložku **🌐 Egress / Network Test**.
+2. Vyber **namespace** aplikace, jejíž egress chceš ověřit.
+3. Zadej **Target**: `euedcapp0299.dc.ege.ds`
+4. Zadej **Port**: `443`
+5. Klikni na **Run Test**.
+
+Aplikace vytvoří dočasný pod `nettest-<uuid>` v daném namespace, provede TCP spojení na zadaný cíl a zároveň přečte SNAT IP z Cilium BPF tabulky na gateway nodu.
+
+**Krok 3 — Ověřit výsledek**
+
+- V PowerShell okně na jumphostu se zobrazí příchozí spojení s **reálnou zdrojovou IP**, např.:
+  ```
+  [14:23:07] Připojení z IP: 10.211.5.42:54312
+  ```
+- Tato IP musí souhlasit se **SNAT IP** zobrazenou v k8s-ai UI (pole *Egress IP* / *SNAT IP*).
+- Pokud se IP shodují → egress gateway funguje správně a provoz odchází přes definovanou VIP.
+- Pokud se IP **neshodují** nebo se na jumphostu nic nezobrazí → zkontroluj `CiliumEgressGatewayPolicy` pro daný namespace a stav gateway nodu.
+
 ### mcp-grafana sidecar
 
 Runs alongside `app.py` in the same pod. Provides access to Grafana's HTTP API:
